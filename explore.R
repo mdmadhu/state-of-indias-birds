@@ -1,11 +1,30 @@
 library(tidyverse)
 library(ggthemes)
 
+source('~/GitHub/state-of-indias-birds/functions.R')
+readcleanrawdata("ebd_IN_relDec-2018.txt")
+source('~/GitHub/state-of-indias-birds/functions.R')
+addmapvars()
+
+readcleanrawdata(KL=T)
+source('~/GitHub/state-of-indias-birds/functions.R')
+addmapvars("KL.RData", KL=T)
+
+source('~/GitHub/state-of-indias-birds/functions.R')
+createmaps()
+
+
 theme_set(theme_tufte())
 
 source('~/GitHub/state-of-indias-birds/functions.R')
 
 load("dataforspatialanalyses.RData")
+specieslist = selectspecies(data,20,5,"ebd_IN_relDec-2018.txt")
+data = completelistcheck(data)
+data = nocturnallistcheck(data)
+data = removevagrants(data)
+
+
 
 data1 = data %>% filter(month %in% c(10,11,12,1,2,3))
 plotfreqmap(data1, "Lesser Sand-Plover", "g4")
@@ -30,30 +49,133 @@ family = c("Great Hornbill","Rufous-necked Hornbill","Malabar Gray Hornbill","In
            "Brown Hornbill")
 datat = data[data$COMMON.NAME %in% family,]
 
-plotfreqmap(data, "White-cheeked Barbet", "g4", level = "species", season = "year round", smooth = T, 
-            rich = F, h = 1.5, cutoff = 5, baseyear = 1980, showempty = F)
+species = c("Jungle Myna","House Crow","Large-billed Crow","Brahminy Kite","Black Kite",
+            "Asian Fairy-bluebird","Indian Paradise-Flycatcher","Indian Pitta","Hooded Pitta",
+            "Blue-naped Pitta","Indian Scimitar-Babbler","Puff-throated Babbler",
+            "Common Myna","Velvet-fronted Nuthatch","Chestnut-bellied Nuthatch","Brown-cheeked Fulvetta")
+
+
+for(i in c("trivial","null","nosp","nosptime","nb","nosptimenb"))
+{
+  start = Sys.time()
+  if (i %in% c("nb","nosptimenb"))
+  {
+    temp1 = occufreq(data, species = species, c("g2","g3","g4"), type = i, nb = 4, cutoff = 0)
+    temp2 = occufreq(data, species = species, c("g2","g3","g4"), type = i, nb = 8, cutoff = 0)
+    temp = rbind(temp1,temp2)
+  }
+  if (!i %in% c("nb","nosptimenb"))
+  {
+    temp = occufreq(data, species = species, c("g2","g3","g4"), type = i, nb = 4, cutoff = 0)
+  }
+  
+  if (i == "trivial")
+  {
+    occ = temp
+  }else{
+    occ = rbind(occ,temp)
+  }
+  
+  end = Sys.time()
+  print(end-start)
+}
+
+plotfreqmap(data, "White-cheeked Barbet", "district", level = "species", season = "year round", smooth = F, 
+            rich = T, add = "species", h = 1.2, cutoff = 5, baseyear = 1900, endyear = 2018, 
+            showempty = F, states = "Karnataka")
+
+#, states = c("Karnataka","Tamil Nadu","Kerala","Andhra Pradesh","Telangana")
 
 
 ########################### run frequency trends function #########################################
 
-freqtrends(data, "Asian Koel", politicalunit="state", unitname="Uttarakhand", analysis="pa4",
-           tempres="month", spaceres="g4", trends=F, minobs=100, baseyear=2010, zinf=0)
+start = Sys.time()
+trends = freqtrends(data, species = "Rosy Starling", politicalunit="state", unitname="Kerala",
+                    analysis="pa2", tempres="month", spaceres="g4", trends=T, minobs=100, 
+                    baseyear=2013, zinf=0)
+end = Sys.time()
+end-start
+
+trends = freqtrends(data, species = "Tickell's Blue Flycatcher", politicalunit="country", unitname="Karnataka",
+           analysis="pa3", tempres="month", spaceres="g4", trends=T, minobs=100, 
+           baseyear=2010, zinf=0)
 
 
 
 
 ########################## plot trends function ###############################################
 
-list1 = c("White-rumped Vulture","Indian Vulture","Egyptian Vulture","Tawny Eagle","Common Myna","Black Kite","Red-vented Bulbul","Ashy Prinia")
-list2 = c("Indian Vulture","Egyptian Vulture","Steppe Eagle","Common Myna","Large-billed Crow","Red-whiskered Bulbul","Jungle Myna","Ashy Prinia")
+list1 = c("Indian Robin","Cinereous Tit","House Sparrow","Baya Weaver",
+          "Ashy Prinia","Crimson-backed Sunbird","White-cheeked Barbet","Asian Palm-Swift")
+list2 = c("Indian Peafowl","Red-whiskered Bulbul","Blyth's Reed Warbler",
+          "Indian Paradise-Flycatcher","White-browed Bulbul","Red-vented Bulbul","Yellow-browed Bulbul")
+list3 = c("Black Kite","Greater Spotted Eagle","Lesser Whistling-Duck","Indian Spot-billed Duck",
+          "Bronze-winged Jacana","Painted Stork","Woolly-necked Stork")
+list4 = c("Curlew Sandpiper","Little Ringed Plover","Red-wattled Lapwing","Temminck's Stint",
+          "Black-tailed Godwit","Glossy Ibis","River Tern","Lesser Black-backed Gull")
 
-plottrends(trends = trends, recent = T, type = "species", selectspecies = list2, smethod = "g5")
-plottrends(trends = trends, recent = T, singlespecies = "Tawny Eagle")
+list = c(list1,list2,list3,list4,list5)
+
+list5 = c("Rosy Starling","Chestnut-tailed Starling","Common Myna","Jungle Myna","Malabar Starling")
+
+KLatlas = KLatlas %>% filter(month %in% 1:3)
+KLnonatlas = KLnonatlas %>% filter(month %in% 1:3)
+
+atlasfreq = KLatlas %>% 
+  filter(ALL.SPECIES.REPORTED == 1) %>%
+  mutate(lists = n_distinct(group.id)) %>% ungroup() %>%
+  group_by(COMMON.NAME) %>% summarize(freq = n_distinct(group.id)/max(lists)) %>% ungroup() %>%
+  arrange(desc(freq))
+
+list = sample(atlasfreq$COMMON.NAME[1:200],60)
+list = list[-c(5,52:60)]
+
+for (i in 1:50)
+{
+  start = Sys.time()
+  trends1 = freqtrends(KLatlas, species = list[i], politicalunit="state", unitname="Kerala",
+                       analysis="trivial pa", tempres="month", spaceres="g4", trends=F, minobs=10, 
+                       baseyear=2013, zinf=0)
+  end = Sys.time()
+  print(end-start)
+  if (i == 1)
+    trends = trends1
+  if (i > 1)
+    trends = rbind(trends,trends1)
+}
 
 
+trends1 = freqtrends(KLnonatlas, species = "White-cheeked Barbet", politicalunit="state", 
+                     unitname="Kerala",
+                     analysis="pa2", tempres="month", spaceres="g4", trends=F, minobs=10, 
+                     baseyear=2013, zinf=0, KL = F)
+
+for (i in 11:15)
+{
+  start = Sys.time()
+  abund1 = freqtrends(data, species = list[i], politicalunit="state", unitname="Kerala",
+                      analysis="pa4", tempres="month", spaceres="g4", trends=F, minobs=100, 
+                      baseyear=2013, zinf=0)
+  end = Sys.time()
+  print(end-start)
+  if (i == 11)
+    abund = abund1
+  if (i > 11)
+    abund = rbind(abund,abund1)
+}
+
+a = unique(trends$species)
 
 
+comp = composite(trends2, stdby = 1, recent = T)
+plottrends(trends = comp, selectspecies = "unnamed group")
 
+trends1 = stdtrends(trends2, recent = F, stdby = 1)
+plottrends(trends = trends1, selectspecies = "House Sparrow")
+
+
+calculateslope(trends2, species = "House Sparrow", recent = T, composite = F)
+write.csv(temp, "slopes.csv")
 
 
 
